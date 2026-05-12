@@ -1,308 +1,163 @@
 # CCAC_MAPS
-Official Repository of Multimodal Adolescent Psychological States Challenge for CCAC
+
+Official baseline repository for the Multimodal Adolescent Psychological States Challenge for CCAC.
 
 ## Background
-This challenge focuses on the tasks of "multimodal temporal evolution prediction" and long-term early warning for adolescent mental health. It aims to break through the limitations of traditional single-point state assessments 
-through long-term sequence modeling. By doing so, this track hopes to overcome the scientific research challenges of long-term psychological evolution analysis and to identify high-risk, susceptible students with deteriorating 
-tendencies as early as possible, thereby providing a solid scientific foundation for early intervention by schools and families. The competition is built upon a longitudinal tracking cohort of 2,000 adolescents spanning a 3-year, 
-4-phase period, featuring continuous induced-paradigm audio-visual data and DASS scale data. It provides a unified evaluation benchmark and multimodal temporal data resources.
 
-## Task Introduction
-### Task Content
-This task requires participating models to dynamically predict the future psychological conditions and emotional evolution trends of subjects within a long-term longitudinal tracking environment, utilizing their historical multimodal
-data and scale labels. Specifically, models must perform temporal modeling on the induced-paradigm audio-visual features and psychological scale data of adolescents across the first three phases (T1, T2, and T3). By extracting deep, dynamic
-psychological representations and evolutionary patterns, the model should accurately predict the individual's depression level in the final phase (T4), which in turn reflects their underlying emotional change trajectory.
+This challenge studies longitudinal prediction of adolescent psychological states from multimodal audio-video recordings and DASS scale history. The dataset follows adolescents across four phases, `T1` to `T4`, and provides induced-paradigm audio-visual features together with psychological scale annotations.
 
-### Input and Output
-- **Input**: Chronologically ordered historical multimodal features and psychological assessment baselines of a single user. Specifically, this includes the subject's multimodal features (e.g., acoustic descriptors, visual facial features) as well as
-the corresponding psychological scale data across the three historical phases: T1, T2, and T3.
-- **Output**: The user's depression level in phase T4.
+## Task
 
-## Annotations：
-### File Types
-- A01：	"The North Wind and the Sun" standardized reading passage.
-  - 有一回，北风跟太阳在那儿争论谁的本领大。说着说着，来了一个过路的，身上穿了一件厚袍子。他们俩就商量好了，说谁能先叫这个过路的把他的袍子脱下来，就算是他的本领大。北风就使劲吹起来，拼命地吹。可是，他吹得越厉害，那个人就把他的袍子裹得越紧。到末了儿，北风没辙了，只好就算了。一会儿，太阳出来一晒，那个人马上就把袍子脱了下来。所以，北风不得不承认，还是太阳比他的本领大。
-- B01：Please describe how your day went yesterday.
-  - 请描述一下，你昨天过的怎么样?
-- B02：Please describe your happiest memory from the past week.
-  - 请描述一下，现在回想最近一周最开心的记忆?
-- B03：Please describe your saddest memory from the past week.
-  - 请描述一下，现在回想最近一周最悲伤的记忆?
+Use subject history from `T1`, `T2`, and `T3` to predict the target psychological state at `T4`.
 
-### Auxiliary Attributes
-1. 家庭结构（Family structure）
-   1. 1=核心家庭，Nuclear
-   2. 2=大家庭, Extended
-   3. 3=单亲家庭, Single-parent
-   4. 4=重组家庭，Blended
-   5. 5=隔代家庭，Skipped-generation
-   6. 6=其他，Other
-2. 是否是独生子女（Only child status）
-   1. Whether the respondent is an only child (1：Yes/0：No).
-3. 如非独生子女,是否感受到父母有所偏爱？（Parental favoritism	If not an only child）
-   1. 1=偏爱兄弟姐妹，Favoring siblings
-   2. 2=无偏爱，No favoritism
-   3. 3=偏爱自己，Favoring self
-4. 本学期相比上个学期，学习成绩变动情况（Academic performance change Compared with previous semester）: 
-   1. 1=进步，Improved, 
-   2. 2=退步，Declined, 
-   3. 3=稳定，Stable.
-5. 本学期相比上个学期，情绪变动情况（Emotional state change Compared with previous semester）: 
-   1. 1=变好，Better
-   2. 2=变差，Worse
-   3. 3=无变化，No change
+This baseline predicts `t4_anxiety_level` from audio-video features. It does not use DASS history features by default, so it should be treated as a simple reference system rather than a performance ceiling.
+
+## Dataset Layout
+
+Place the released dataset under `datasets/`:
+
+```text
+datasets/
+├── train_val/
+│   ├── labels.csv
+│   ├── audio_wavlm_base/
+│   ├── video_dinov2_small/
+│   └── ...
+├── test/
+│   ├── subjects.csv
+│   ├── audio_wavlm_base/
+│   ├── video_dinov2_small/
+│   └── ...
+└── metadata/
+```
+
+Feature archives may be distributed as `.7z` files. Extract each archive into a directory with the same feature name before running the baseline, for example `train_val/audio_wavlm_base.7z` should become `train_val/audio_wavlm_base/`.
+
+Feature files are organized as:
+
+```text
+<split>/<feature_name>/<anon_school>/<anon_class>/<anon_person>/<stage>/<clip_type>/
+```
+
+where `split` is `train_val` or `test`, `stage` is one of `T1`, `T2`, `T3`, and `clip_type` is one of:
+
+| Clip | Description |
+|---|---|
+| `A01` | Standardized reading passage, "The North Wind and the Sun" |
+| `B01` | Free response about yesterday |
+| `B02` | Free response about the happiest memory from the past week |
+| `B03` | Free response about the saddest memory from the past week |
+
+Each clip feature directory can contain:
+
+| File | Meaning |
+|---|---|
+| `sequence.npz` | Time or chunk-level feature sequence with `features`, `timestamps_ms`, `feature_names`, and `source_hz` |
+| `pooled.npy` | Numeric pooled vector used by this baseline |
+| `pooled.json` | Metadata for the pooled vector |
 
 ## Features Description
-### 1. Audio
-#### 1.1 `mel_mfcc`
-- Contents:
-  - Log-Mel spectrogram: 80 dims
-  - MFCC: 13 dims
-- Time resolution: 25 Hz
-- `sequence.npz`:
-  - `mel_features`: `(T, 80)`
-  - `mfcc_features`: `(T, 13)`
-  - `timestamps_ms`: `(T,)`
-  - `valid_mask`: `(T,)`
-- Field meanings:
-  - `mel_features[:, 0:80]`: log energy over 80 Mel filter banks
-  - `mfcc_features[:, 0:13]`: 13 MFCC coefficients
-- `pooled` statistics:
-  - `mean/std/p10/p50/p90` are computed separately for Mel and MFCC features
-  - Theoretical total dimensionality: `80*5 + 13*5 = 465`
-  - Column naming patterns:
-    - `mel_00_mean ... mel_79_p90`
-    - `mfcc_00_mean ... mfcc_12_p90`
 
-#### 1.2 `vad`
-- Extraction method: `webrtcvad`
-- Time resolution: 25 Hz
-- `sequence.npz`:
-  - `features`: `(T, 1)`
-- Single-dimension semantics:
-  - Dimension 0: `vad_decision`
-    - `1` indicates speech
-    - `0` indicates silence / non-speech
-- `pooled.json` fields:
-  - `speech_ratio`
-  - `total_speech_duration`
-  - `total_silence_duration`
-  - `num_speech_segments`
-  - `num_silence_segments`
-  - `pause_count`
-  - `mean_pause_duration`
-  - `max_pause_duration`
-  - `long_pause_count`
-  - Other outputs:
-    - `segments.json`: start/end timestamps of speech and silence segments
+The current release focuses on pretrained audio and video representations plus a lightweight video descriptor. All SSL features use mean and standard deviation pooling, so the pooled vector dimension is twice the encoder embedding dimension.
 
-#### 1.3 `egemaps`
-- Extraction method: `openSMILE eGeMAPSv02 functionals`
-- Total `pooled` dimensionality: `88`
-- Description:
-  - These 88 dimensions are standardized acoustic statistical features covering F0, loudness, spectral slope, spectral flux, formant-related statistics, and voiced/unvoiced segment statistics.
-- Example column names:
-  - `F0semitoneFrom27.5Hz_sma3nz_amean`
-  - `F0semitoneFrom27.5Hz_sma3nz_stddevNorm`
-  - `loudnessPeaksPerSec`
-  - `VoicedSegmentsPerSec`
-  - `MeanVoicedSegmentLengthSec`
-  - `equivalentSoundLevel_dBp`
+### Audio Features
 
-#### 1.4 `ssl_embed`
-- Extraction method: final-layer hidden states from a speech self-supervised model, linearly interpolated and resampled to 25 Hz
-- `sequence.npz`:
-  - `features`: `(T, D)`
-  - `timestamps_ms`: `(T,)`
-  - `valid_mask`: `(T,)`
-  - `embed_dim`: scalar
-  - `model_name`: scalar
-- Per-frame semantics:
-  - Each frame is a `D`-dimensional speech representation vector produced by the corresponding pretrained model.
-- `pooled` statistics:
-  - `mean/std/p10/p50/p90` are computed for each embedding dimension
-  - Total dimensionality: `5 * D`
-  - Column naming pattern: `embed_0000_mean ... embed_(D-1)_p90`
+| Feature name | Source model | Sequence shape example | Pooled dimension | Notes |
+|---|---|---:|---:|---|
+| `audio_wavlm_base` | `microsoft/wavlm-base` | `(num_chunks, 1536)` | `3072` | Default baseline audio feature. Each chunk vector stores mean and standard deviation over WavLM frame states; `pooled.npy` again stores mean and standard deviation over chunk vectors. |
+| `audio_chinese_hubert_base` | `TencentGameMate/chinese-hubert-base` | `(num_chunks, 1536)` | `3072` | Optional released audio SSL feature when available. |
+| `audio_wav2vec2_chinese_base` | `TencentGameMate/chinese-wav2vec2-base` | `(num_chunks, 1536)` | `3072` | Optional released audio SSL feature when available. |
+| `audio_wav2vec2_xlsr_chinese` | `jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn` | `(num_chunks, 2048)` | `4096` | Optional released audio SSL feature when available. |
 
-Supported models and dimensions:
+Audio SSL extraction uses enhanced 16 kHz mono audio. The sequence time axis corresponds to fixed-length audio chunks, and the pooled vector is intended for clip-level modeling.
 
-| model_tag | HuggingFace / model identifier | Per-frame dimension  |
-|---|---|---:|
-| `wavlm-base` | `microsoft/wavlm-base` | 768 |
-| `chinese-hubert-base` | `TencentGameMate/chinese-hubert-base` | 768 |
-| `chinese-hubert-large` | `TencentGameMate/chinese-hubert-large` | 1024 |
-| `chinese-wav2vec2-base` | `TencentGameMate/chinese-wav2vec2-base` | 768 |
-| `chinese-wav2vec2-large` | `TencentGameMate/chinese-wav2vec2-large` | 1024 |
-| `wav2vec2-chinese-xlsr` | `jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn` | 1024 |
+### Video Features
 
-## 2. Video Features
-### 2.1 `qc_stats`
+| Feature name | Source model or method | Sequence shape example | Pooled dimension | Notes |
+|---|---|---:|---:|---|
+| `video_dinov2_small` | `facebook/dinov2-small` | `(num_frames, 384)` | `768` | Default baseline video feature. |
+| `video_dinov2_base` | `facebook/dinov2-base` | `(num_frames, 768)` | `1536` | Larger DINOv2 representation. |
+| `video_siglip_base` | `google/siglip-base-patch16-224` | `(num_frames, 768)` | `1536` | Vision-language image representation. |
+| `video_vit_mae_base` | `facebook/vit-mae-base` | `(num_frames, 768)` | `1536` | Masked-autoencoder visual representation. |
+| `video_clip_base` | `openai/clip-vit-base-patch32` | `(num_frames, 512)` | `1024` | CLIP base image representation. |
+| `video_clip_large` | `openai/clip-vit-large-patch14` | `(num_frames, 768)` | `1536` | CLIP large image representation. |
+| `video_basic` | brightness, blur, frame motion | `(num_frames, 3)` | `13` | Lightweight handcrafted video statistics. |
 
-- Pretrained dependency: indirectly depends on upstream `InsightFace buffalo_l` outputs (`face_meta`)
-- Extraction method: quality statistics computed from `face_meta.parquet`
-- `sequence.npz`:
-  - `features`: `(T, 4)`
-  - `feature_names = [quality_score, blur_score, brightness, det_score]`
-- 4-D mapping:
-  - Dimension 0: `quality_score`, overall quality score
-  - Dimension 1: `blur_score`, blur/sharpness score
-  - Dimension 2: `brightness`
-  - Dimension 3: `det_score`, face detection confidence
-- Main `pooled.json` fields:
-  - `total_frames`
-  - `detected_frames`
-  - `detection_rate`
-  - `valid_frames`
-  - `valid_ratio`
-  - `is_low_quality`
-  - `blur_mean`, `blur_std`, `blur_min`, `blur_max`
-  - `brightness_mean`, `brightness_std`
-  - `quality_mean`, `quality_std`
-  - `det_score_mean`, `det_score_std`
-  - `face_area_ratio_mean`
-  - `num_selected_frames`
+Video SSL features are extracted from sparsely sampled frames. The default sampling configuration is up to 64 frames at 1 FPS before pooling.
 
-### 2.2 `headpose_geom`
+### Baseline Tensor
 
-- Pretrained dependency: indirectly depends on 5-point landmarks from upstream `InsightFace buffalo_l`
-- Extraction method: geometric approximation based on 5-point landmarks
-- `sequence.npz`:
-  - `features`: `(T, 5)`
-  - `feature_names = [yaw, pitch, roll, ear_mean, mar]`
-- 5-D mapping:
-  - Dimension 0: `yaw`, left-right head rotation
-  - Dimension 1: `pitch`, up-down head motion
-  - Dimension 2: `roll`, head tilt
-  - Dimension 3: `ear_mean`, mean EAR of both eyes, approximately reflecting eye openness
-  - Dimension 4: `mar`, mouth opening ratio
-- `pooled` statistics:
-  - `mean/std/min/max` are computed for each of `yaw/pitch/roll/ear_mean/mar`
-  - Plus `valid_ratio`
-  - Total dimensionality: `5*4 + 1 = 21`
+For each subject, this baseline reads one audio feature and one video feature for every `T1/T2/T3` and `A01/B01/B02/B03` combination. Missing clips are zero-filled and tracked by a mask.
 
-### 2.3 `face_behavior`
+Default tensor shape:
 
-- Pretrained dependency: indirectly depends on upstream `InsightFace buffalo_l` outputs (`face_meta`)
-- Extraction method: behavior statistics based on `ear / mar / yaw / pitch / quality_score`
-- `sequence.npz`:
-  - `features`: `(T, 5)`
-- 5-D mapping:
-  - Dimension 0: `ear`
-  - Dimension 1: `mar`
-  - Dimension 2: `yaw`
-  - Dimension 3: `pitch`
-  - Dimension 4: `quality_score`
-- `pooled.parquet` statistical fields:
-  - `blink_count`
-  - `blink_rate_per_min`
-  - `avg_blink_duration_frames`
-  - `mouth_open_ratio`
-  - `mouth_movement_std`
-  - `speech_activity_ratio`
-  - `gaze_stability_score`
-  - `yaw_range`
-  - `pitch_range`
-  - `saccade_count`
-  - `expression_variability`
-  - `expression_change_count`
-- Total dimensionality: `12`
+```text
+[3 stages, 4 clips, 3072 audio dims + 768 video dims]
+```
 
-### 2.4 `vad_agg`
+The default input dimension is therefore `3840`.
 
-- Pretrained model: no
-- Extraction method: align and aggregate audio `vad` onto the video timeline
-- `sequence.npz`:
-  - `features`: `(T, 4)`
-  - `feature_names = [speech_prob, speech_activity, local_speech_ratio, speech_transition]`
-- 4-D mapping:
-  - Dimension 0: `speech_prob`, aligned speech probability/intensity
-  - Dimension 1: `speech_activity`, binary speech activity
-  - Dimension 2: `local_speech_ratio`, local-window speech ratio
-  - Dimension 3: `speech_transition`, frame-to-frame speech state transition intensity
-- `pooled.parquet` statistical fields:
-  - `speech_ratio`
-  - `avg_speech_prob`
-  - `speech_transitions`
-  - `silence_ratio`
-  - `local_speech_ratio_mean`
-  - `local_speech_ratio_std`
+## Baseline Model
 
-### 2.5 `body_pose`
+The baseline has three components:
 
-- Pretrained model: `MediaPipe PoseLandmarker`
-  - Preferred: `pose_landmarker_full.task`
-  - Fallback: `pose_landmarker_lite.task`
-- `sequence.npz`:
-  - `features`: `(T, 27)`
-  - `landmark_names = [nose, left_shoulder, right_shoulder, left_elbow, right_elbow, left_wrist, right_wrist, left_hip, right_hip]`
-- 27-D mapping:
-  - Each landmark outputs 3 dimensions: `(x, y, visibility)`
-  - There are 9 upper-body landmarks, so total dimensionality is `27 = 9 * 3`
-- Flattened order:
-  - `nose_x, nose_y, nose_visibility`
-  - `left_shoulder_x, left_shoulder_y, left_shoulder_visibility`
-  - `right_shoulder_x, right_shoulder_y, right_shoulder_visibility`
-  - `left_elbow_x, left_elbow_y, left_elbow_visibility`
-  - `right_elbow_x, right_elbow_y, right_elbow_visibility`
-  - `left_wrist_x, left_wrist_y, left_wrist_visibility`
-  - `right_wrist_x, right_wrist_y, right_wrist_visibility`
-  - `left_hip_x, left_hip_y, left_hip_visibility`
-  - `right_hip_x, right_hip_y, right_hip_visibility`
-- Main `pooled.json` fields:
-  - `num_frames`
-  - `num_valid_frames`
-  - `valid_ratio`
-  - `landmarks_mean`: 27 dimensions
-  - `landmarks_std`: 27 dimensions
+1. A shared clip encoder projects concatenated audio-video pooled vectors.
+2. Attention pooling fuses `A01/B01/B02/B03` clips within each stage.
+3. A bidirectional GRU models the `T1 -> T2 -> T3` trajectory and predicts `T4` anxiety level.
 
-### 2.6 `global_motion`
+Training uses cross-entropy loss, class weighting, cross-validation on `train_val/labels.csv`, and an ensemble of fold checkpoints for `test/subjects.csv` prediction.
 
-- Pretrained model: no
-- Extraction method: OpenCV Farneback optical flow + frame differencing
-- `sequence.npz`:
-  - `features`: `(T, 4)`
-  - `feature_names = [flow_mag_mean, flow_mag_std, flow_angle_mean, frame_diff_mean]`
-- 4-D mapping:
-  - Dimension 0: `flow_mag_mean`, mean optical-flow magnitude
-  - Dimension 1: `flow_mag_std`, std of optical-flow magnitude
-  - Dimension 2: `flow_angle_mean`, mean optical-flow direction
-  - Dimension 3: `frame_diff_mean`, mean pixel difference between adjacent frames
-- Main `pooled.json` fields:
-  - `num_frames`
-  - `flow_magnitude_mean`
-  - `flow_magnitude_std`
-  - `flow_magnitude_max`
-  - `frame_diff_mean`
-  - `frame_diff_max`
-  - `motion_energy`
+## Installation
 
-### 2.7 `vision_ssl_embed`
+```bash
+conda create -n ccac_maps python=3.10 -y
+conda activate ccac_maps
+pip install -r requirements.txt
+```
 
-- Pretrained model: yes
-- Extraction method: aligned face images are fed into a pretrained vision model; `pooler_output` or `CLS token` is used
-- `sequence.npz`:
-  - `features`: `(T, D)`
-  - `timestamps_ms`: `(T,)`
-  - `valid_mask`: `(T,)`
-  - `embed_dim`: scalar
-  - `model_name`: scalar
-- Per-frame semantics:
-  - Each frame is a `D`-dimensional high-level visual representation vector encoding face appearance, pose, texture, and expression-related patterns. It does not correspond to a single handcrafted geometric variable.
-- `pooled` statistics:
-  - `mean/std/p10/p50/p90` are computed for each embedding dimension
-  - Total dimensionality: `5 * D`
-  - Column naming pattern: `embed_0000_mean ... embed_(D-1)_p90`
+## Run Baseline
 
-Supported models and dimensions:
+```bash
+PYTHONPATH=src python scripts/train_anxiety_baseline.py \
+  --dataset-path datasets \
+  --output-dir artifacts/baselines/anxiety_wavlm_dinov2_small
+```
 
-| model_tag | HuggingFace / model identifier | Per-frame dimension |
-|---|---|---:|
-| `dinov2-small` | `facebook/dinov2-small` | 384 |
-| `dinov2-base` | `facebook/dinov2-base` | 768 |
-| `dinov2-large` | `facebook/dinov2-large` | 1024 |
-| `vit-mae-base` | `facebook/vit-mae-base` | 768 |
-| `vit-base-patch16-224` | `google/vit-base-patch16-224` | 768 |
-| `siglip-base-patch16-224` | `google/siglip-base-patch16-224` | 768 |
-| `siglip-so400m-patch14-384` | `google/siglip-so400m-patch14-384` | 1152 |
-| `clip-vit-base-patch32` | `openai/clip-vit-base-patch32` | 768 |
-| `clip-vit-large-patch14` | `openai/clip-vit-large-patch14` | 1024 |
+Useful options:
+
+```bash
+PYTHONPATH=src python scripts/train_anxiety_baseline.py \
+  --dataset-path datasets \
+  --output-dir artifacts/baselines/anxiety_wavlm_dinov2_small \
+  --audio-feature-name audio_wavlm_base \
+  --video-feature-name video_dinov2_small \
+  --target-label-column t4_anxiety_level \
+  --device cuda
+```
+
+If CUDA is unavailable, the code falls back to CPU.
+
+## Outputs
+
+The training script writes:
+
+| Output | Description |
+|---|---|
+| `fold_metrics.csv` | Validation metrics for each fold |
+| `oof_predictions.csv` | Out-of-fold predictions for `train_val` subjects |
+| `test_predictions.csv` | Ensemble predictions for `test` subjects |
+| `label_mapping.json` | Mapping from label string to class index |
+| `baseline_config.json` | Training configuration |
+| `summary.json` | Overall metrics and feature dimensions |
+| `classification_report.txt` | Text classification report |
+| `fold_*/best_model.pt` | Best checkpoint for each fold |
+
+## Test
+
+```bash
+PYTHONPATH=src pytest -q tests
+```
+
+## Repository Scope
+
+This repository contains only the baseline training code. It does not include raw recordings, private metadata, model weights, generated artifacts, or local environment archives.
