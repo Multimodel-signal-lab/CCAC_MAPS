@@ -58,7 +58,7 @@ Each clip feature directory can contain:
 
 ## Features Description
 
-The current release focuses on pretrained audio and video representations plus a lightweight video descriptor. All SSL features use mean and standard deviation pooling, so the pooled vector dimension is twice the encoder embedding dimension.
+We focuses on pretrained audio and video representations plus a lightweight video descriptor. All SSL features use mean and standard deviation pooling, so the pooled vector dimension is twice the encoder embedding dimension.
 
 ### Audio Features
 
@@ -157,7 +157,3 @@ The training script writes:
 ```bash
 PYTHONPATH=src pytest -q tests
 ```
-
-## Repository Scope
-
-This repository contains only the baseline training code. It does not include raw recordings, private metadata, model weights, generated artifacts, or local environment archives.
